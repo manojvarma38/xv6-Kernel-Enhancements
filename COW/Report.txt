@@ -1,0 +1,66 @@
+CS23B038
+-------------
+LAB5 REPORT :
+-------------
+
+----------------------------------------
+Problem : Implementing Copy-On-Write (COW)
+----------------------------------------
+
+Files modified and changes made : 
+---------------------------------
+
+MakeFile    -   Add cowtest in UPROGS so that they get compiled.  
+
+kernel/riscv.h  -   Add PTE_COW, software bit to mark copy-on-write pages.
+
+kernel/defs.h   -   Add ref_inc(uint64) and ref_dec(uint64) helper function definitions so that they are visible to every file. 
+
+kernel/vm.c     -   Modify uvmcopy() to map the parent’s physical pages into the child as COW instead of allocating new pages.
+                    
+                    Clear the PTE_W bit in both parent and child page table entries for pages that were originally writable.
+
+
+kernel/trap.c    -  Implement page fault handling in usertrap().
+
+                    When COW page gives write fault, allocate a new physical page, copy data from the shared page, and update the PTE to make it private and writable.
+
+                    Decrease ref_count for previous page.
+
+kernel/kalloc.c   -     Add reference count for each physical page.
+
+                        Modify kalloc() to initialize the ref_count to 1.
+
+                        Modify kfree() to decrease the ref_count.
+
+                        In kfree, If ref_count becomes 0, the page is added back to freelist.
+
+                        Implement ref_inc(uint64) and ref_dec(uint64) functions.
+
+
+Internal Working of Copy-On-Write :
+---------------------------------------
+
+1.)Fork with COW:
+
+When a process calls fork(), instead of copying all pages, the kernel maps the parent’s physical pages into the child.
+
+Writable pages are marked COW in both processes (PTE_W cleared, RSW bits set).
+
+Reference counts for these pages are incremented.
+
+2.)Page Fault Handling:
+
+When a process writes to a COW page, a page fault occurs.
+
+The kernel allocates a new physical page, copies the contents from the shared page, and updates the PTE to point to the new page with writable permissions.
+
+Reference counts are adjusted: the old shared page count is decremented, the new page count is initialized to 1.
+
+3.)Memory Management:
+
+Each physical page keeps a reference count.
+
+When a page is unmapped or a process exits, the reference count is decremented.
+
+A page is freed only when no process is pointing it.
