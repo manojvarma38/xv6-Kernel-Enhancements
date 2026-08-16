@@ -1,0 +1,129 @@
+CS23B038
+-------------
+LAB3 REPORT :
+-------------
+
+-------------------------------------------
+Problem 1: Page Table Tree Printing in xv6
+-------------------------------------------
+
+Files modified and changes made : 
+---------------------------------
+
+kernel/vm.c –   Add vmprint(pagetable_t pt) which recursively traverses the page table tree.
+
+                It uses a recursive helper function and prints only valid entries (with PTE_V set).
+
+kernel/defs.h – Add prototype for vmprint().
+
+kernel/exec.c – Call vmprint(pagetable) inside exec() so the page table of the first process gets printed.
+
+
+Internal Working of Page Table Tree Printing in xv6 :
+-----------------------------------------------------
+
+xv6 uses a 3-level page table on RISC-V. 
+
+Each page table entry (PTE) may point to either another page table (next level) or a physical page.
+
+vmprintwalk_helper(pagetable_t pt, int depth) function recursively walks these levels, similar to freewalk() in vm.c .
+
+For each mapped entry, it prints:   PTE index
+                                    PTE value
+                                    Corresponding physical address
+
+The first line prints the base address of the page table.
+
+Entries in lower levels are indicated by additional dots(.. , .. .. , etc.) to show hierarchy.
+
+
+
+-----------------------------------------------------------------------------
+Problem 2: Optimizing the getpid() System Call in xv6 via Page Table Sharing
+-----------------------------------------------------------------------------
+
+
+Files modified and changes made : 
+---------------------------------
+
+kernel/memlayout.h – Define a new virtual address USYSCALL and struct usyscall.
+
+kernel/proc.h – Add struct usyscall *usyscall pointer inside struct proc.
+
+kernel/proc.c – During process creation, allocate physical page for the usyscall structure using mappages function.
+
+                Map it at USYSCALL in the process’s page table with read-only user permissions.
+
+                Store the process PID in this shared page.
+
+                Free this memory during process cleanup.
+
+user/user.h – Add prototype for ugetpid().
+
+Internal Working of Optimizing the getpid() System Call in xv6 via Page Table Sharing :
+---------------------------------------------------------------------------------------
+
+Normally, getpid() requires a system call, which calls a trap into kernel, returns PID.
+
+This involves context switching overhead.
+
+To Optimize this :
+
+For each process,  map a single read-only shared page at USYSCALL, a virtual address defined in memlayout.h .
+
+Initialize PID of current process.
+
+The provided userspace function ugetpid() will automatically read the PID via the USYSCALL mapping.
+
+This avoids repeated kernel mode switches, improving performance.
+
+The page is read-only to prevent processes from modifying their PID.
+
+
+-------------------------------------------------------------------
+Problem 3: Detecting Accessed Pages: Implementing pgaccess() in xv6
+--------------------------------------------------------------------
+
+Files modified and changes made : 
+---------------------------------
+
+kernel/sysproc.c –  Implement sys_pgaccess().
+
+                    Use walk() to locate PTEs for the given virtual address range.
+
+kernel/syscall.h – Add syscall number for pgaccess.
+
+kernel/syscall.c – Add syscall entry for pgaccess.
+
+user/user.h – Add prototype for pgaccess.
+
+user/usys.pl – Add entry for pgaccess.
+
+kernel/riscv.h – Defined PTE_A (Accessed bit).
+
+
+Internal Working of Detecting Accessed Pages :
+---------------------------------------------------------------------------------------
+
+pgaccess(base, len, mask) scans len pages starting at base.
+
+sys_pgaccess:
+
+Fetch the system call arguments :   Starting virtual address, 
+                                    Number of pages to check, 
+                                    User-space buffer to store the bitmask. 
+
+
+Loop through the pages.For each page :
+
+    The kernel uses walk() to fetch its PTE.
+
+    Checks if the Accessed bit (PTE_A) is set.
+
+    If set, mark the corresponding bit in the result bitmask.
+
+    Clear the PTE_A bit after reading it (so future checks only catch new accesses).
+
+After looping through pages, Copy the resulting bitmask from the kernel to the user's buffer.
+
+This lets user programs track which memory pages they actually touched.
