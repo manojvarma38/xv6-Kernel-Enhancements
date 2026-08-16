@@ -1,0 +1,57 @@
+CS23B038
+-------------
+LAB4 REPORT :
+-------------
+
+----------------------------------------
+Problem : Implementing User Space Traps
+----------------------------------------
+
+Files modified and changes made : 
+---------------------------------
+
+MakeFile    -   Add alarmtest and usertests in UPROGS so that they get compiled    
+
+user/user.h  -   Add declarations for sigalarm and sigreturn 
+
+user/usys.pl    -   Add entries for sigalarm and sigreturn
+
+kernel/syscall.h    -   Define syscall numbers for sigalarm and sigreturn
+
+kernel/syscall.c    -   Add sigalarm and sigreturn to the array mapping syscall numbers from syscall.h to the function that handles the system call
+
+                        Add prototypes for sigalarm and sigreturn that handle system calls
+
+kernel/proc.h   -   Add fields in struct proc to keep track of information such as  how many ticks have passed since the last call, alarm interval, the pointer to the handler function 
+
+kernel/proc.c    -   Initialize proc fields in allocproc() 
+
+kernel/sysproc.c    -   Implement sys_sigalarm and sys_sigreturn 
+
+kernel/trap.c –   Modify usertrap() so that when a process’s alarm interval expires, the user process executes the handler function 
+
+
+Internal Working of User Space Traps :
+---------------------------------------
+
+A user program calls sigalarm(ticks, handler).
+
+The kernel stores the alarm interval, remaining ticks, and handler address inside the process’s struct proc.
+
+Every clock tick generates a timer interrupt, handled in usertrap(). On each tick, if the current process has an alarm armed and is not already inside a handler, the kernel decrements the countdown.
+
+When the countdown reaches zero, the kernel prepares to deliver the alarm handler.
+
+The kernel saves the current process state by copying the trapframe into a backup field. The process is marked as alarm_on to prevent re-entry.
+
+The kernel sets the process’s program counter (epc) to the handler address so that, on return to user mode, execution continues at the user-defined handler function.
+
+The handler runs like a normal user function, but was entered asynchronously due to the timer interrupt.
+
+The user must call sigreturn() at the end of the handler to restore the interrupted context.
+
+When sigreturn is called, the kernel copies back the saved registers from the backup trapframe to the current trapframe.
+
+The alarm_on flag is cleared, and the countdown is reset to the alarm interval, allowing future alarms.
+
+The user program resumes from the exact instruction where it was interrupted.
